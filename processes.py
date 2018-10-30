@@ -151,7 +151,7 @@ class ManageProcess(PGsession):
         records = self.cursor.fetchone()
         if records == None:
             print (process.paramsD)
-            paramsD = {'rootprocid':'fitta'}
+            paramsD = {'rootprocid':'ERRORCHECK'}
             exitstr = 'The root process %(rootprocid)s is not defined, can not add sub process %(subprocid)s' %process.paramsD
             exit(exitstr)
             
@@ -226,7 +226,7 @@ class ManageProcess(PGsession):
                         exitstr = 'All compositions must have a bandid (defaultvalue) %s %s' %(rootprocid, subprocid)
                         print (process.node.params[element])
                         print (exitstr)
-                        BALLE
+                        ERRORCHECK
                         exit(exitstr)
                         
                 for param in process.node.paramsD[element][parent]:

@@ -83,7 +83,7 @@ class ManageSentinel(PGsession):
                 print (rec)
                 print (queryD)
                 print (queryD['mgrs'],rec[2])
-                BALLE
+                ERRORCHECK
                 
     def _InstertGranule(self,queryD):
         rec = self._CheckInsertSingleRecord(queryD,'sentinel', 'granules', [('granuleid',)])
@@ -164,7 +164,7 @@ class ManageSentinel(PGsession):
         queryD['downloaded'] = {'val':'N', 'op':'=' }
         '''
         if params.orbitdirection.upper() != 'B':
-            BALLE
+            ERRORCHECK
         wherestr = self._DictToSelect(queryD)
 
         query = "SELECT uuid, tileid, source, product, folder, acqdate, orbitid, utm, mgrsid, mgrs FROM sentinel.tilemeta \

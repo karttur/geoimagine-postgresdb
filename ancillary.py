@@ -103,7 +103,7 @@ class ManageAncillary(PGsession):
             return dict(zip(params,records[0]))
         else:
             print ('querystem',querystem)
-            BALLE
+            ERRORCHECK
         
     def _InsertClimateIndex(self,queryL):
         self.cursor.execute("DELETE FROM climateindex.climindex WHERE index = '%(index)s';" %queryL[0])

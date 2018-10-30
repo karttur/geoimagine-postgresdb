@@ -120,7 +120,7 @@ def InsertLayer(session,layer,overwrite,delete):
             queryD['doy'] = layer.datum.doy    
         session._CheckInsertSingleRecord(queryD, layer.comp.system, 'layers')
         ''''
-        BALLE
+        ERRORCHECK
         print ("SELECT * FROM %(system)s.layers WHERE compid = '%(compid)s' AND product = '%(product)s' AND suffix = '%(suffix)s' AND utm = '%(utm)s' AND acqdatestr = '%(acqdatestr)s';" %query)
         session.cursor.execute("SELECT * FROM %(system)s.layers WHERE compid = '%(compid)s' AND product = '%(product)s' AND suffix = '%(suffix)s' AND mgrs = '%(mgrs)s' AND acqdatestr = '%(acqdatestr)s';" %query)
         record = session.cursor.fetchone()
@@ -197,7 +197,7 @@ def SelectCompAlt(session,compQ,inclL):
     else:
         print ('querystem',querystem)
         print ('query',compQ)
-        BALLE
+        ERRORCHECK
         
 def SelectComp(session, compQ):
     params = ['source', 'product', 'folder', 'band', 'prefix', 'suffix', 'masked', 'cellnull', 'celltype', 'measure', 'scalefac', 'offsetadd', 'dataunit']
@@ -214,7 +214,7 @@ def SelectComp(session, compQ):
         else:
             print ('records', records)
             print ('query',compQ)
-            BALLE
+            ERRORCHECK
     '''    
     #self.process.compinD,self.process.period.startdate,self.process.period.enddate,location,self.process.proj.system
     #Quert that looks for input data
