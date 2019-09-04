@@ -5,7 +5,7 @@ Created on 8 mars 2018
 '''
 
 from geoimagine.postgresdb import PGsession
-from geoimagine.postgresdb.compositions import InsertCompDef, InsertCompProd, InsertLayer
+from geoimagine.postgresdb.compositions import InsertCompDef, InsertCompProd, InsertLayer, SelectComp
 from base64 import b64encode
 import netrc
 
@@ -26,7 +26,6 @@ class ManageAncillary(PGsession):
         #Connect to the Postgres Server
         self.session = PGsession.__init__(self,query,'ManageAncillary')
   
-        
     def _SelectDefaultRegion(self,defregid):
         query = {'regionid':defregid}
         self.cursor.execute("SELECT regioncat FROM system.defregions WHERE regionid = '%(regionid)s';" %query)
@@ -38,6 +37,7 @@ class ManageAncillary(PGsession):
         self.cursor.execute("SELECT * FROM system.regions WHERE regionid = '%(regionid)s';" %paramsD)
         rec = self.cursor.fetchone()
         if rec == None:
+            print ("SELECT * FROM system.regions WHERE regionid = '%(regionid)s';" %paramsD)
             print ("SELECT * FROM system.regions WHERE regionid = '%(id)s' AND regioncat = '%(cat)s';" %paramsD)
             exitstr = 'EXITING: Can not find region and regioncat for DS: %s, %s' %(ancilDS.regionid,ancilDS.regioncat)
             exit(exitstr)
@@ -86,29 +86,78 @@ class ManageAncillary(PGsession):
             self.conn.commit()
 
     def _SelectComp(self, compQ):
-        querystem = 'SELECT C.source, C.product, B.folder, B.band, B.prefix, C.suffix, C.masked, C.cellnull, C.celltype, B.measure, B.scalefac, B.offsetadd, B.dataunit '   
-        query ='FROM %(system)s.compdefs AS B ' %compQ
-        querystem = '%s %s ' %(querystem, query)
-        query ='INNER JOIN %(system)s.compprod AS C ON (B.compid = C.compid)' %compQ
-        querystem = '%s %s ' %(querystem, query)
-        #query = {'system':system,'id':compid}
-        querypart = "WHERE B.folder = '%(folder)s' AND B.band = '%(band)s'" %compQ
-        querystem = '%s %s' %(querystem, querypart)
-        #print ('querystem',querystem)
-        self.cursor.execute(querystem)
-        records = self.cursor.fetchall()
-        params = ['source', 'product', 'folder', 'band', 'prefix', 'suffix', 'masked', 'cellnull', 'celltype', 'measure', 'scalefac', 'offsetadd', 'dataunit']
+        return SelectComp(self, compQ)
     
-        if len(records) == 1:
-            return dict(zip(params,records[0]))
-        else:
-            print ('querystem',querystem)
-            ERRORCHECK
-        
     def _InsertClimateIndex(self,queryL):
         self.cursor.execute("DELETE FROM climateindex.climindex WHERE index = '%(index)s';" %queryL[0])
         for query in queryL:
             self.cursor.execute("INSERT INTO climateindex.climindex (index, acqdate, acqdatestr, value) VALUES ('%(index)s', '%(acqdate)s', '%(acqdatestr)s', %(value)s);" %query)
             self.conn.commit()                    
                                 
-                                
+    def _SelectRegionExtent(self, queryD, paramL):
+        return self._SingleSearch(queryD, paramL, 'system', 'regions')    
+    
+    def _SelectClimateIndex(self,period,index):
+        query = {'index':index, 'sdate': period.startdate, 'edate':period.enddate}
+        self.cursor.execute("SELECT acqdate, value FROM climateindex.climindex WHERE \
+            index = '%(index)s' AND acqdate >= '%(sdate)s' AND acqdate <= '%(edate)s' ORDER BY acqdate" %query )
+        recs = self.cursor.fetchall()
+        if len (recs) == 0:
+            print ("SELECT acqdate, value FROM climateindex.climindex WHERE \
+            index = '%(index)s' AND acqdate >= '%(sdate)s' AND acqdate <= '%(edate)s' ORDER BY acqdate" %query )
+        return recs 
+    
+    def _DeleteSRTMBulkTiles(self,params):
+        query = {'prod':params.product, 'v':params.version}
+        self.cursor.execute("DELETE FROM ancillary.srtmdptiles WHERE product= '%(prod)s' AND version = '%(v)s';" %query)     
+        self.conn.commit()
+        
+    def _LoadSRTMBulkTiles(self,params,tmpFPN,headL):
+        self._DeleteSRTMBulkTiles(params)
+        #query = {'tmpFPN':tmpFPN, 'items': ",".join(headL)}
+        #print ("COPY modis.datapooltiles (%(items)s) FROM '%(tmpFPN)s' DELIMITER ',' CSV HEADER;" %query)
+        #self.cursor.execute("COPY modis.datapooltiles (%(items)s) FROM '%(tmpFPN)s' DELIMITER ',' CSV HEADER;" %query)
+        #print ("%(tmpFPN)s, 'modis.datapooltiles', columns= (%(items)s), sep=','; "%query)
+        print ('Copying from',tmpFPN)
+        with open(tmpFPN, 'r') as f:
+            next(f)  # Skip the header row.
+            self.cursor.copy_from(f, 'ancillary.srtmdptiles', sep=',')
+            self.conn.commit()
+            #cur.copy_from(f, 'test', columns=('col1', 'col2'), sep=",")    
+            
+    def _SelectSRTMdatapooltilesOntile(self,queryD,paramL):
+        rec = self._SingleSearch(queryD, paramL, 'ancillary', 'srtmdptiles', True)
+        return rec  
+    
+    def _InsertSRTMtileNOT(self,query):
+        self.cursor.execute("SELECT * FROM ancillary.tiles WHERE tileid = '%(tileid)s';"  %query)
+        record = self.cursor.fetchone()
+        if record == None:
+            cols = query.keys()
+            values = query.values()
+            values =["'{}'".format(str(x)) for x in values]
+            query = {'cols':",".join(cols), 'values':",".join(values)}
+            self.cursor.execute ("INSERT INTO modis.tiles (%(cols)s) VALUES (%(values)s);" %query)
+            self.conn.commit() 
+            
+    def _SelectDefRegionExtent(self,queryD, paramL):
+        rec = self._SingleSearch(queryD, paramL, 'system', 'regions', True)
+        return rec  
+    
+    def _Select1degSquareTiles(self, queryD, paramL): 
+        """
+        """
+        
+        
+        print ("SELECT L.lltile FROM system.regions as R \
+        JOIN system.defregions as D USING (regionid)\
+        JOIN ancillary.srtmdptiles as L ON (R.regionid = L.lltile) \
+        WHERE title = '1degsquare' AND lrlon > %(ullon)s AND ullon < %(lrlon)s AND ullat > %(lrlat)s AND lrlat < %(ullat)s;" %queryD)
+        
+        self.cursor.execute ("SELECT L.lltile FROM system.regions as R \
+        JOIN system.defregions as D USING (regionid)\
+        JOIN ancillary.srtmdptiles as L ON (R.regionid = L.lltile) \
+        WHERE title = '1degsquare' AND lrlon > %(ullon)s AND ullon < %(lrlon)s AND ullat > %(lrlat)s AND lrlat < %(ullat)s;" %queryD)
+
+        recs = self.cursor.fetchall()
+        return recs

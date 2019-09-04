@@ -1,21 +1,27 @@
 """
-Postgres connection for karttur Geo Imagine Framework
+potgresdb
+==========================================
+
+Package belonging to Karttur´s GeoImagine Framework.
 
 Author
-______
-Thomas Gumbricht
-"""
+------
+Thomas Gumbricht (thomas.gumbricht@karttur.com)
 
-from .version import __version__, VERSION
+"""
+from .version import __version__, VERSION, metadataD
 from .session import PGsession
-from geoimagine.postgresdb.processes import SelectProcess, ManageProcess
-from geoimagine.postgresdb.selectuser import SelectUser
-from geoimagine.postgresdb.layout import ManageLayout
-from geoimagine.postgresdb.modis import ManageMODIS
-from geoimagine.postgresdb.smap import ManageSMAP
-from geoimagine.postgresdb.region import ManageRegion
-from geoimagine.postgresdb.ancillary import ManageAncillary
-from geoimagine.postgresdb.sentinel import ManageSentinel
-from geoimagine.postgresdb.landsat import ManageLandsat
-from geoimagine.postgresdb.soilmoisture import ManageSoilMoisture
-from geoimagine.postgresdb.fileformats import SelectFileFormats
+from .processes import SelectProcess, ManageProcess
+from .selectuser import SelectUser
+from .layout import ManageLayout
+from .modis import ManageMODIS
+from .smap import ManageSMAP
+from .region import ManageRegion
+from .export import ManageExport
+from .ancillary import ManageAncillary
+from .sentinel import ManageSentinel
+from .landsat import ManageLandsat
+from .soilmoisture import ManageSoilMoisture
+from .fileformats import SelectFileFormats
+from .userproj import ManageUserProj
+from .sqldump import ManageSqlDumps

@@ -10,8 +10,7 @@ from geoimagine.postgresdb.compositions import InsertCompDef, InsertCompProd, In
 from base64 import b64encode
 import netrc
 
-from geoimagine.support.karttur_dt import Today
-
+#from geoimagine.support.karttur_dt import Today
 
 class ManageRegion(PGsession):
     '''
@@ -46,6 +45,7 @@ class ManageRegion(PGsession):
             self.cursor.execute("SELECT * FROM system.regioncats WHERE regioncat = '%(regioncat)s';" %region)
             record = self.cursor.fetchone()
             if record == None:
+                print ('region',region)
                 self.cursor.execute('INSERT INTO system.regioncats (regioncat, parentcat, stratum, title, label) VALUES (%s, %s, %s,%s,%s)',
                                     (region['regioncat'], region['parentcat'], region['stratum'], region['title'], region['label']))
                 self.conn.commit()
@@ -59,9 +59,22 @@ class ManageRegion(PGsession):
             exitstr = 'The parentcat region %s for region %s does not exists, it must be added proir to the region' %(region['parentid'],region['regioncat'])
             exit(exitstr)
             
-    def _InsertDefRegion(self, process, layer, query, bounds, llD):
+            
+    def _Insert1DegDefRegion(self, query):
         '''
         '''
+        self._CheckInsertSingleRecord(query,'system','defregions')
+        
+            
+    def _InsertDefRegion(self, process, layer, query, bounds, llD, overwrite, delete):
+        '''
+        '''
+        if overwrite or delete:
+            self.cursor.execute("DELETE FROM system.defregions WHERE regionid = '%(regionid)s' AND regioncat ='%(parentcat)s' AND parentid ='%(parentid)s'  ;" %query)
+            self.conn.commit()
+            if delete:
+                self._InsertRegion(query, bounds, llD, overwrite, delete)
+                return
         #Check that the regioncat is correctly set
         self.cursor.execute("SELECT * FROM system.regioncats WHERE regioncat = '%(regioncat)s';" %query)
         record = self.cursor.fetchone()
@@ -81,12 +94,12 @@ class ManageRegion(PGsession):
                     print ("SELECT * FROM system.defregions WHERE regionid = '%(parentid)s' AND regioncat ='%(parentcat)s' ;" %xquery)
                     FISKA
                     exitstr = 'the parentid region "%s" of regioncat "%s" does not exist in the defregions table' %(query['parentid'], query['parentcat'])
-                    exit(exitstr)
-                    
+                    exit(exitstr)       
             else:
-                print ("SELECT * FROM system.defregions WHERE regionid = '%(parentid)s' AND regioncat ='%(parentcat)s' ;" %query)
-                FISKA
+                
                 exitstr = 'the parentid region "%s" of regioncat "%s" does not exist in the defregions table' %(query['parentid'], query['parentcat'])
+                print ("SELECT * FROM system.defregions WHERE regionid = '%(parentid)s' AND regioncat ='%(parentcat)s' ;" %query)
+
                 exit(exitstr)
                 
         #Check if the region itself already exists
@@ -100,9 +113,6 @@ class ManageRegion(PGsession):
          
         else:
             if query['regioncat'] != record[0]: 
-                #print layer.location.regionid, layer.location.regioncat, record[0]
-                #Special solution to pass antarctiva and south-america as both continents and subcontinents
-
                 if layer.locus.locus in ['antarctica','south-america']:
                     query2 = {'id': layer.locus.locus,'cat':query['regioncat']}
                     self.cursor.execute("SELECT regioncat FROM system.defregions WHERE regionid = '%(id)s' and regioncat = '%(cat)s';" %query2)
@@ -116,20 +126,25 @@ class ManageRegion(PGsession):
 
         query['system'] = 'system'
         query['regiontype'] = 'D'
-        self._InsertRegion(query, bounds, llD)
+        self._InsertRegion(query, bounds, llD, overwrite, delete)
         
         InsertCompDef(self,layer.comp)  
         InsertCompProd(self,layer.comp)
         #InsertCompProd(self,process.system,process.system,layer.comp)  
         InsertLayer(self, layer, process.proc.overwrite, process.proc.delete)
         
-    def _InsertRegion(self, query, bounds, llD):
+    def _InsertRegion(self, query, bounds, llD, overwrite, delete):
         #query = {'id': region.regionid}
+        if overwrite or delete:
+            self.cursor.execute("DELETE FROM %(system)s.regions WHERE regionid = '%(regionid)s';" %query)
+            self.conn.commit()
+            if delete:
+                return
+            
         self.cursor.execute("SELECT * FROM %(system)s.regions WHERE regionid = '%(regionid)s';" %query)
         record = self.cursor.fetchone()
-        print ('record',record)
         if record == None:
-            print ("SELECT * FROM %(system)s.regions WHERE regionid = '%(regionid)s';" %query)
+            #print ("SELECT * FROM %(system)s.regions WHERE regionid = '%(regionid)s';" %query)
             self.cursor.execute("INSERT INTO %(system)s.regions (regionid, regioncat, regiontype) VALUES \
                     ('%(regionid)s', '%(regioncat)s', '%(regiontype)s');" %query)
 
@@ -156,6 +171,34 @@ class ManageRegion(PGsession):
                 exit(exitstr)
         #TGTODO duplicate name for tract but different user???, delete and overwrite
         
-    def _SelectComp(self,system,comp):
-        comp['system'] = system
+    def _SelectComp(self,comp):
+        #comp['system'] = system
         return SelectComp(self, comp)
+    
+            
+    def _LoadBulkDefregions(self,tmpFPN):
+        #self._DeleteSRTMBulkTiles(params)
+        #query = {'tmpFPN':tmpFPN, 'items': ",".join(headL)}
+        #print ("COPY modis.datapooltiles (%(items)s) FROM '%(tmpFPN)s' DELIMITER ',' CSV HEADER;" %query)
+        #self.cursor.execute("COPY modis.datapooltiles (%(items)s) FROM '%(tmpFPN)s' DELIMITER ',' CSV HEADER;" %query)
+        #print ("%(tmpFPN)s, 'modis.datapooltiles', columns= (%(items)s), sep=','; "%query)
+        print ('Copying from',tmpFPN)
+        with open(tmpFPN, 'r') as f:
+            next(f)  # Skip the header row.
+            self.cursor.copy_from(f, 'system.defregions', sep=',')
+            self.conn.commit()
+            #cur.copy_from(f, 'test', columns=('col1', 'col2'), sep=",")
+
+    def _LoadBulkRegions(self,tmpFPN):
+
+        #query = {'tmpFPN':tmpFPN, 'items': ",".join(headL)}
+        #print ("COPY modis.datapooltiles (%(items)s) FROM '%(tmpFPN)s' DELIMITER ',' CSV HEADER;" %query)
+        #self.cursor.execute("COPY modis.datapooltiles (%(items)s) FROM '%(tmpFPN)s' DELIMITER ',' CSV HEADER;" %query)
+        #print ("%(tmpFPN)s, 'modis.datapooltiles', columns= (%(items)s), sep=','; "%query)
+        print ('Copying from',tmpFPN)
+        with open(tmpFPN, 'r') as f:
+            next(f)  # Skip the header row.
+            self.cursor.copy_from(f, 'system.regions', sep=',')
+            self.conn.commit()
+    
+

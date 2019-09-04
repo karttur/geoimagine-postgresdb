@@ -7,55 +7,6 @@ from geoimagine.postgresdb import PGsession
 from base64 import b64encode
 import netrc
 
-from geoimagine.support.karttur_dt import Today
-
-class SelectLayout(PGsession):
-    '''
-    DB support for setting up processes
-    '''
-
-    def __init__(self):
-        """The constructor connects to the database"""
-        HOST = 'localhost99'
-        secrets = netrc.netrc()
-        username, account, password = secrets.authenticators( HOST )
-        pswd = b64encode(password.encode())
-        #create a query dictionary for connecting to the Postgres server
-        query = {'db':'postgres','user':username,'pswd':pswd}
-        #Connect to the Postgres Server
-        self.session = PGsession.__init__(self,query)
-        self.session.name = 'SelectLayout'
-        
-    def _SelectStratum(self,query):
-        self.cursor.execute("SELECT minuserstratum FROM process.subprocesses WHERE subprocid = '%(subprocid)s';" %query)
-        record = self.cursor.fetchone()
-        return record
-        
-    def _SelectRootProcess(self,query):  
-        print ("SELECT rootprocid FROM process.subprocesses WHERE subprocid = '%(subprocid)s';" %query)
-        self.cursor.execute("SELECT rootprocid FROM process.subprocesses WHERE subprocid = '%(subprocid)s';" %query)
-        record = self.cursor.fetchone()
-        return record
-    
-    def _SelectProcessTagAttr(self,subprocess,parent,tag):
-        query = {'sub':subprocess, 'par':parent, 'tag':tag}
-        self.cursor.execute("SELECT tagorattr, paramid, paramtyp, required, defaultvalue FROM process.processparams WHERE subprocid = '%(sub)s' AND parent = '%(par)s' AND element = '%(tag)s';" %query)
-        records = self.cursor.fetchall()
-        return records
-    
-    def _SelectCompBands(self,subprocess,parent,tag):
-            query = {'sub':subprocess, 'par':parent, 'tag':tag}
-            self.cursor.execute("SELECT bandid FROM process.processparams WHERE subprocid = '%(sub)s' AND parent = '%(par)s' AND element = '%(tag)s' AND paramid = 'band';" %query)
-            records = self.cursor.fetchall()
-            if len(records) == 0:
-                print ("SELECT bandid FROM process.processparams WHERE subprocid = '%(sub)s' AND parent = '%(par)s' AND element = '%(tag)s' AND paramid = 'band';" %query)
-            return records
-        
-    def _SelectProcessAdditionalTagAttr(self,subprocess,parent):
-        query = {'sub':subprocess, 'par':parent}
-        self.cursor.execute("SELECT DISTINCT ON (element) element FROM process.processparams WHERE subprocid = '%(sub)s' AND parent = '%(par)s';" %query)
-        records = self.cursor.fetchall()
-        return records
 
 class ManageLayout(PGsession):
     '''
@@ -72,37 +23,93 @@ class ManageLayout(PGsession):
         query = {'db':'postgres','user':username,'pswd':pswd}
         #Connect to the Postgres Server
         self.session = PGsession.__init__(self,query)   
+           
+    def _ManageRasterPalette(self,userId, params,setcolorD,overwrite,delete):
+    
+        if params.default:
+            #set this palette as the default for the given compid
+            query = {'compid':params.compid,'palette':params.palette}
         
-    def _ManageRasterPalette(self,process,palette,querys):
-        query = {'pal':palette,'owner':process.proj.userid,'compid':process.parameters.compid}
-        #print ('query',query)
-        self.cursor.execute("SELECT owner FROM layout.rasterpalettes WHERE palette = '%(pal)s';" %query)
-        rec = self.cursor.fetchone()
-        if rec != None:
-            if rec[0] != process.proj.userid:
-                warnstr = 'Skipping palette management. Your user is not the owner of the palette %/pal)s' %query
-                print (warnstr)
-                return
-        elif not process.delete:
-            self.cursor.execute("INSERT INTO layout.rasterpalettes (palette, compid, owner) VALUES (%s, %s, %s)",
-                        (palette, process.parameters.compid, process.proj.userid))
+        query = {'compid':params.compid, 'palette':params.palette, 'owner':userId, 'access':params.access[0]}
+        self._CheckInsertSingleRecord(query,'layout','rasterpalettes', [['palette']])
+        #If overwrite or delete all colors all deleted
+        if overwrite or delete:
+            self.cursor.execute("DELETE FROM layout.rasterpalcolors WHERE palette = '%(palette)s';" %query)
             self.conn.commit()
-        self.cursor.execute("SELECT owner FROM layout.rasterpalettes WHERE compid = '%(compid)s' AND owner = '%(owner)s';" %query)
-        rec = self.cursor.fetchone()
-        if rec != None:
-            warnstr = 'Skipping create management. Each user can only create one (1) palette for each composition (%(compid)s)' %query
-            print (warnstr)
-            return
-        if process.delete or process.overwrite:
-            self.cursor.execute("DELETE FROM layout.rasterpalcolors WHERE palette = '%(pal)s';" %query)
-            if process.delete:
-                return
-        for key in querys:
-            query = {'pal':palette, 'val':key}
-            self.cursor.execute("SELECT * FROM layout.rasterpalcolors WHERE palette = '%(pal)s' AND value = %(val)s;" %query)
-            rec = self.cursor.fetchone()
-            if rec == None:
-                cD = querys[key]
-                self.cursor.execute("INSERT INTO layout.rasterpalcolors (palette, value, red, green, blue, alpha, label, hint) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
-                        (palette, cD['value'], cD['red'], cD['green'], cD['blue'], cD['alpha'], cD['label'], cD['hint']))
-                self.conn.commit()
+
+        if not delete:
+            for col in setcolorD:
+                c = setcolorD[col]
+                query = {'palette':params.palette, 'value':col, 'red':c['red'], 'green':c['green'], 'blue':c['blue'], 'alpha':c['alpha'], 
+                         'label':c['label'], 'hint':c['hint']}
+                self._CheckInsertSingleRecord(query,'layout','rasterpalcolors', [['palette'],['value']])
+    
+    def _ManageRasterLegend(self,paramsD,comp,overwrite,delete):
+        compid = '%(f)s_%(b)s' %{'f':comp['folder'].lower(),'b':comp['band'].lower()}
+        paramsD['compid'] = compid
+        paramsD['source'] = comp['source']
+        paramsD['product'] = comp['product']
+        paramsD['suffix'] = comp['suffix']
+        
+        booleans = ['label','compresslabels','matrix','two51','two52','two53','two54','two55']
+        for b in booleans:
+            if paramsD[b]:
+                paramsD[b] = 'Y'
+            else:
+                paramsD[b] = 'N'
+                    
+        #If overwrite or delete all colors all deleted
+        if overwrite or delete:
+            self.cursor.execute("DELETE FROM layout.legend WHERE \
+            compid = '%(compid)s' AND source = '%(source)s' AND product = '%(product)s' AND suffix = '%(suffix)s';" %paramsD)
+            self.conn.commit()
+        if not delete:
+            self._CheckInsertSingleRecord(paramsD,'layout','legend', [['compid'],['source'],['product'],['suffix']])
+
+    def _ManageRasterScaling(self,paramsD,comp,overwrite,delete):
+        compid = '%(f)s_%(b)s' %{'f':comp['folder'].lower(),'b':comp['band'].lower()}
+        paramsD['compid'] = compid
+        paramsD['source'] = comp['source']
+        paramsD['product'] = comp['product']
+        paramsD['suffix'] = comp['suffix']
+         
+        #If overwrite or delete all colors all deleted
+        if overwrite or delete:
+            self.cursor.execute("DELETE FROM layout.scaling WHERE \
+            compid = '%(compid)s' AND source = '%(source)s' AND product = '%(product)s' AND suffix = '%(suffix)s';" %paramsD)
+            self.conn.commit()
+        if not delete:
+            self._CheckInsertSingleRecord(paramsD,'layout','scaling', [['compid'],['source'],['product'],['suffix']])
+
+    def _GetCompFormat(self, query):
+        BALLE
+              
+    def _SelectPaletteColors(self,query,paramL):
+        query['cols'] = ",".join(paramL)
+        self.cursor.execute("SELECT  %(cols)s FROM layout.rasterpalcolors \
+        WHERE palette = '%(palette)s';" %query)
+        recs = self.cursor.fetchall()
+        return (recs)
+        
+    def _SelectCompDefaultPalette(self,query):
+        self.cursor.execute("SELECT palette FROM layout.defaultpalette \
+        WHERE compid = '%(compid)s';" %query)
+        recs = self.cursor.fetchone()
+        return (recs)
+    
+    def _ManageMovieClock(self,query,overwrite,delete):
+        query.pop('today')
+        
+        booleans = ['textatclock','textinvideo']
+        for b in booleans:
+            if query[b]:
+                query[b] = 'Y'
+            else:
+                query[b] = 'N'
+                
+        if overwrite or delete:   
+            self.cursor.execute("DELETE FROM layout.movieclock WHERE \
+            name = '%(name)s';" %query)
+            self.conn.commit()
+        if not delete:
+            self._CheckInsertSingleRecord(query,'layout','movieclock', [['name']])
