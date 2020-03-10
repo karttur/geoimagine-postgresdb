@@ -15,7 +15,8 @@ class SelectProcess(PGsession):
 
     def __init__(self):
         """The constructor connects to the database"""
-        HOST = 'localhost99'
+        #HOST = 'localhost99'
+        HOST = 'processmanage'
         secrets = netrc.netrc()
         username, account, password = secrets.authenticators( HOST )
         print ('    db username',username)
@@ -24,25 +25,25 @@ class SelectProcess(PGsession):
         query = {'db':'postgres','user':username,'pswd':pswd}
         #Connect to the Postgres Server
         self.session = PGsession.__init__(self,query,'SelectProcess')
-        
+
     def _SelectStratum(self,query):
         self.cursor.execute("SELECT minuserstratum FROM process.subprocesses WHERE subprocid = '%(subprocid)s';" %query)
         record = self.cursor.fetchone()
         if record == None:
             print ("SELECT minuserstratum FROM process.subprocesses WHERE subprocid = '%(subprocid)s';" %query)
         return record
-        
-    def _SelectRootProcess(self,query):  
+
+    def _SelectRootProcess(self,query):
         self.cursor.execute("SELECT rootprocid FROM process.subprocesses WHERE subprocid = '%(subprocid)s';" %query)
         record = self.cursor.fetchone()
         return record
-    
+
     def _SelectProcessSystems(self,query):
         self.cursor.execute("SELECT system, srcsystem, dstsystem, srcdivision, dstdivision FROM process.procsys WHERE subprocid = '%(subprocid)s';" %query)
         records = self.cursor.fetchall()
         if len(records) == 0:
             print ("SELECT system, srcsystem, dstsystem, srcdivision, dstdivision FROM process.procsys WHERE subprocid = '%(subprocid)s';" %query)
-        
+
         return records
 
     def _SelectProcessTagAttr(self,subprocess,parent,tag):
@@ -60,28 +61,28 @@ class SelectProcess(PGsession):
             #print ("SELECT tagorattr, paramid, paramtyp, required, defaultvalue, parent, element, bandid FROM process.processparams WHERE subprocid = '%(sub)s' AND parent = '%(par)s' AND element = '%(tag)s';" %query)
             records = self.cursor.fetchall()
         return records
-    
+
     def _SelectCompBands(self,subprocess,parent,tag):
             query = {'sub':subprocess, 'par':parent, 'tag':tag}
             self.cursor.execute("SELECT bandid FROM process.processparams WHERE subprocid = '%(sub)s' AND parent = '%(par)s' AND element = '%(tag)s' AND paramid = 'band';" %query)
             records = self.cursor.fetchall()
             if len(records) == 0:
-                print ("SELECT bandid FROM process.processparams WHERE subprocid = '%(sub)s' AND parent = '%(par)s' AND element = '%(tag)s' AND paramid = 'band';" %query)    
+                print ("SELECT bandid FROM process.processparams WHERE subprocid = '%(sub)s' AND parent = '%(par)s' AND element = '%(tag)s' AND paramid = 'band';" %query)
             return records
-        
+
     def _SelectProcessCompTagAttr(self, subprocess, parent, tag, bandid):
         query = {'sub':subprocess, 'par':parent, 'tag':tag,'bandid':bandid}
         "SELECT tagorattr, paramid, paramtyp, required, defaultvalue FROM process.processparams WHERE subprocid = '%(sub)s' AND parent = '%(par)s' AND element = '%(tag)s' AND bandid = '%(bandid)s';" %query
         self.cursor.execute("SELECT tagorattr, paramid, paramtyp, required, defaultvalue FROM process.processparams WHERE subprocid = '%(sub)s' AND parent = '%(par)s' AND element = '%(tag)s' AND bandid = '%(bandid)s';" %query)
         records = self.cursor.fetchall()
         return records
-        
+
     def _SelectProcessAdditionalTagAttrOld(self,subprocess,parent):
         query = {'sub':subprocess, 'par':parent}
         self.cursor.execute("SELECT DISTINCT ON (element) element FROM process.processparams WHERE subprocid = '%(sub)s' AND parent = '%(par)s';" %query)
         records = self.cursor.fetchall()
         return records
-    
+
     def _SelectTractDefRegion(self,tract):
         #First check if this region is itself a defregion
         query = {'tract': tract}
@@ -90,14 +91,14 @@ class SelectProcess(PGsession):
         if rec != None:
             return (rec[0],'T')
 
-        self.cursor.execute("SELECT parentid FROM regions.tracts WHERE tractid = '%(tract)s';" %query) 
+        self.cursor.execute("SELECT parentid FROM regions.tracts WHERE tractid = '%(tract)s';" %query)
         return (self.cursor.fetchone()[0],'D')
-    
+
     def _SelectUserTract(self,userid,tract):
         query = {'userid':userid, 'tract':tract}
         self.cursor.execute("SELECT tractid FROM regions.tracts WHERE tractid = '%(tract)s' AND owner = '%(userid)s';" %query)
         return self.cursor.fetchone()
-    
+
     def _SelectTractDefregid(self, userid, tract):
         rec = self._SelectUserTract(userid, tract)
         if rec == None:
@@ -120,8 +121,8 @@ class ManageProcess(PGsession):
         #create a query dictionary for connecting to the Postgres server
         query = {'db':'postgres','user':username,'pswd':pswd}
         #Connect to the Postgres Server
-        self.session = PGsession.__init__(self,query,'ManageProcess')  
-  
+        self.session = PGsession.__init__(self,query,'ManageProcess')
+
     def _ManageRootProcess(self,process):
         self.cursor.execute("SELECT * FROM process.rootprocesses WHERE rootprocid = '%(rootprocid)s';" %process.paramsD)
         records = self.cursor.fetchone()
@@ -130,7 +131,7 @@ class ManageProcess(PGsession):
                     ('%(rootprocid)s', '%(title)s', '%(label)s', '%(creator)s');" %process.paramsD)
             self.conn.commit()
         elif process.overwrite:
-            self.cursor.execute("UPDATE process.rootprocesses SET (title,label) = ('%(title)s', '%(label)s') WHERE rootprocid = '%(rootprocid)s';" %process.paramsD)         
+            self.cursor.execute("UPDATE process.rootprocesses SET (title,label) = ('%(title)s', '%(label)s') WHERE rootprocid = '%(rootprocid)s';" %process.paramsD)
             self.conn.commit()
 
         elif process.delete:
@@ -142,7 +143,7 @@ class ManageProcess(PGsession):
             else:
                 exitstr = 'A Root process can only be deleted if there are no subprocesses assigned to it'
                 exit(exitstr)
-                
+
     def _ManageSubProcess(self,process):
         '''
         '''
@@ -161,7 +162,7 @@ class ManageProcess(PGsession):
             paramsD = {'rootprocid':'snullebulle'}
             exitstr = 'The root process %(rootprocid)s is not defined, can not add sub process %(subprocid)s' %process.paramsD
             exit(exitstr)
-            
+
         self.cursor.execute("SELECT * FROM process.subprocesses WHERE rootprocid = '%(rootprocid)s' AND subprocid = '%(subprocid)s' AND version = '%(version)s';" %process.paramsD)
         records = self.cursor.fetchone()
 
@@ -187,13 +188,13 @@ class ManageProcess(PGsession):
                     if rec == None:
                         self.cursor.execute("INSERT INTO process.procsys (subprocid, system, srcsystem, dstsystem, srcdivision, dstdivision) VALUES \
                                 ('%(subprocid)s', '%(system)s', '%(srcsystem)s', '%(dstsystem)s', '%(srcdivision)s', '%(dstdivision)s')" %process.system.paramD[s])
-                        self.conn.commit()  
-            
+                        self.conn.commit()
+
         elif process.overwrite:
             print (process.paramsD)
             self.cursor.execute("UPDATE process.subprocesses SET (minuserstratum,title,label) = (%(minuserstratum)s, '%(title)s', '%(label)s') WHERE \
                 rootprocid = '%(rootprocid)s' AND subprocid = '%(subprocid)s' AND version = '%(version)s';"  %process.paramsD)
-            self.conn.commit() 
+            self.conn.commit()
             self.cursor.execute("DELETE FROM process.procsys WHERE subprocid = '%(subprocid)s';" %process.paramsD)
             self.conn.commit()
             for s in process.system.paramD:
@@ -214,13 +215,13 @@ class ManageProcess(PGsession):
                             ('%(subprocid)s', '%(system)s', '%(srcsystem)s', '%(dstsystem)s', '%(srcdivision)s', '%(dstdivision)s')" %process.system.paramD[s])
                     self.cursor.execute("INSERT INTO process.procsys (subprocid, system, srcsystem, dstsystem, srcdivision, dstdivision) VALUES \
                             ('%(subprocid)s', '%(system)s', '%(srcsystem)s', '%(dstsystem)s', '%(srcdivision)s', '%(dstdivision)s')" %process.system.paramD[s])
-                    self.conn.commit() 
-   
+                    self.conn.commit()
+
         elif process.delete:
             self.cursor.execute("DELETE FROM process.subprocesses WHERE rootprocid = '%(rootprocid)s' AND subprocid = '%(subprocid)s' AND version = '%(version)s'" %process.paramsD)
 
             self.conn.commit()
-            
+
         if process.delete or process.overwrite:
             #Delete all the processparams
             self.cursor.execute("DELETE FROM process.processparams WHERE rootprocid = '%(rootprocid)s' AND subprocid = '%(subprocid)s' AND version = '%(version)s';" %process.paramsD)
@@ -245,7 +246,7 @@ class ManageProcess(PGsession):
                 #Find out if this is a band
                 for p in process.node.paramsD[element][parent]:
                     if p['paramid'] == 'band' and p['defaultvalue'] != '':
-                        bandid =  p['defaultvalue'] 
+                        bandid =  p['defaultvalue']
 
                 if parent in ['dstcomp','srccomp']:
 
@@ -255,7 +256,7 @@ class ManageProcess(PGsession):
                         print (exitstr)
                         BALLE
                         exit(exitstr)
-                        
+
                 for param in process.node.paramsD[element][parent]:
 
                     #paramid = param['paramid']
@@ -263,7 +264,7 @@ class ManageProcess(PGsession):
                         setValueL = param['setvalue']
                     else:
                         setValueL = []
-                    if 'minmax' in param: 
+                    if 'minmax' in param:
                         minMaxD = param['minmax']
                     else:
                         minMaxD = {}
@@ -273,42 +274,42 @@ class ManageProcess(PGsession):
                     query['bandid'] = bandid
                     query['tagorattr'] = query['tagorattr'].upper()[0]
                     if parent in ['srccomp','dstcomp'] and bandid:
-                        
+
                         self.cursor.execute("SELECT * FROM process.processparams WHERE rootprocid = '%(rootprocid)s' AND subprocid = '%(subprocid)s' AND paramid = '%(paramid)s' AND version = '%(version)s' AND parent = '%(parent)s' AND element = '%(element)s' AND defaultvalue = '%(defaultvalue)s' AND bandid = '%(bandid)s';" %query)
                     else:
-                        
+
                         self.cursor.execute("SELECT * FROM process.processparams WHERE rootprocid = '%(rootprocid)s' AND subprocid = '%(subprocid)s' AND paramid = '%(paramid)s' AND version = '%(version)s' AND parent = '%(parent)s' AND element = '%(element)s';" %query)
-                    records = self.cursor.fetchone()            
-                    
-                    if records == None: 
+                    records = self.cursor.fetchone()
+
+                    if records == None:
                         self.cursor.execute("INSERT INTO process.processparams (rootprocid, subprocid, version, parent, element, paramid, paramtyp, tagorattr, required, defaultvalue,bandid) VALUES \
                                 ('%(rootprocid)s','%(subprocid)s','%(version)s','%(parent)s','%(element)s','%(paramid)s','%(paramtyp)s','%(tagorattr)s','%(required)s','%(defaultvalue)s','%(bandid)s');" %query)
                         self.conn.commit()
-                    
-                    
-                    for setValue in setValueL: 
+
+
+                    for setValue in setValueL:
                         query['setvalue'] = setValue['value']
                         self.cursor.execute("SELECT * FROM process.processparamSetValues WHERE \
                             rootprocid = '%(rootprocid)s' AND subprocid = '%(subprocid)s' AND paramid = '%(paramid)s' AND \
                             parent = '%(parent)s'  AND element = '%(element)s' AND setvalue = '%(setvalue)s' AND version = '%(version)s';" %query)
                         records = self.cursor.fetchone()
-                        if records == None: 
+                        if records == None:
                             query['valuelabel'] = setValue['label']
                             self.cursor.execute("INSERT INTO process.processparamSetValues (rootprocid, subprocid, version, paramid, parent, element, setvalue, label) VALUES \
                             ('%(rootprocid)s','%(subprocid)s','%(version)s','%(paramid)s','%(parent)s','%(element)s', '%(setvalue)s', '%(valuelabel)s');" %query)
                             self.conn.commit()
-                    if minMaxD: 
+                    if minMaxD:
                         self.cursor.execute("SELECT * FROM process.processparamSetMinMax WHERE \
                                 rootprocid = '%(rootprocid)s' AND subprocid = '%(subprocid)s' AND paramid = '%(paramid)s' AND \
                                 parent = '%(parent)s'  AND element = '%(element)s' AND version = '%(version)s';" %query)
                         records = self.cursor.fetchone()
-                        if records == None: 
-                            query['min'] =  minMaxD['min'];  query['max'] =  minMaxD['max']    
+                        if records == None:
+                            query['min'] =  minMaxD['min'];  query['max'] =  minMaxD['max']
                             self.cursor.execute("INSERT INTO process.processparamSetMinMax (rootprocid, subprocid, version, paramid, parent, element, minval, maxval) VALUES \
                             ('%(rootprocid)s','%(subprocid)s','%(version)s','%(paramid)s','%(parent)s','%(element)s',%(min)s,%(max)s);" %query)
                             self.conn.commit()
- 
- 
+
+
         for s in process.system.paramD:
                 process.system.paramD[s]['subprocid'] = process.paramsD['subprocid']
                 #print ("SELECT * FROM process.procsys WHERE subprocid = '%(subprocid)s' AND system = '%(system)s';" %process.system.paramD[s])
@@ -320,8 +321,8 @@ class ManageProcess(PGsession):
                             ('%(subprocid)s', '%(system)s', '%(srcsystem)s', '%(dstsystem)s', '%(srcdivision)s', '%(dstdivision)s')" %process.system.paramD[s])
                     self.cursor.execute("INSERT INTO process.procsys (subprocid, system, srcsystem, dstsystem, srcdivision, dstdivision) VALUES \
                             ('%(subprocid)s', '%(system)s', '%(srcsystem)s', '%(dstsystem)s', '%(srcdivision)s', '%(dstdivision)s')" %process.system.paramD[s])
-                    self.conn.commit() 
-                    
+                    self.conn.commit()
+
     def _SelectRootProcess(self,queryD):
         '''
         '''
@@ -333,14 +334,14 @@ class ManageProcess(PGsession):
             wherestatement = self.session._DictToSelect(selectQuery)
         else:
             wherestatement = ''
-        print ('wherestatement',wherestatement) 
+        print ('wherestatement',wherestatement)
 
         querystem = '%s %s;' %(querystem, wherestatement)
-    
+
         self.cursor.execute(querystem)
         records = self.cursor.fetchall()
         return records
-    
+
     def _SelectSubProcess(self,queryD):
         '''
         '''
@@ -352,10 +353,10 @@ class ManageProcess(PGsession):
             wherestatement = self._DictToSelect(selectQuery)
         else:
             wherestatement = ''
-        print ('wherestatement',wherestatement) 
+        print ('wherestatement',wherestatement)
 
         querystem = '%s %s;' %(querystem, wherestatement)
-    
+
         self.cursor.execute(querystem)
         records = self.cursor.fetchall()
         return records
@@ -371,10 +372,10 @@ class ManageProcess(PGsession):
             wherestatement = self._DictToSelect(selectQuery)
         else:
             wherestatement = ''
-        print ('wherestatement',wherestatement) 
+        print ('wherestatement',wherestatement)
 
         querystem = '%s %s;' %(querystem, wherestatement)
-    
+
         self.cursor.execute(querystem)
         records = self.cursor.fetchall()
         return records
