@@ -18,6 +18,7 @@ class SelectUser(PGsession):
         #Connect to the Postgres Server with 'readuser
         #HOST = 'localhost89'
         HOST = 'userread'
+        HOST = 'karttur'
         secrets = netrc.netrc()
         dbuser, account, dbuserpswd = secrets.authenticators( HOST )
         dbuserpswd = b64encode(dbuserpswd.encode())

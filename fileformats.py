@@ -17,6 +17,7 @@ class SelectFileFormats(PGsession):
     def __init__(self):
         """The constructor connects to the database"""
         HOST = 'formatread'
+        HOST = 'karttur'
         secrets = netrc.netrc()
         username, account, password = secrets.authenticators( HOST )
         pswd = b64encode(password.encode())
@@ -25,14 +26,13 @@ class SelectFileFormats(PGsession):
         #Connect to the Postgres Server
         PGsession.__init__(self,query,'SelectFileFormats')
 
-    
+
     def _SelectCellTypes(self):
         self.cursor.execute("SELECT gdal, arr, np, usgs FROM process.celltypes")
         records = self.cursor.fetchall()
         return records
-    
+
     def _SelectGDALof(self):
         self.cursor.execute("SELECT hdr, dat, gdaldriver FROM process.gdalformat")
         records = self.cursor.fetchall()
         return records
-

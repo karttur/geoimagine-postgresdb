@@ -19,8 +19,9 @@ class ManageLandsat(PGsession):
     def __init__(self):
         """The constructor connects to the database"""
         HOST = 'managelandsat'
+        HOST = 'karttur'
         secrets = netrc.netrc()
-        
+
         username, account, password = secrets.authenticators( HOST )
 
         pswd = b64encode(password.encode())
@@ -28,16 +29,16 @@ class ManageLandsat(PGsession):
         query = {'db':'postgres','user':username,'pswd':pswd}
         #Connect to the Postgres Server
         self.session = PGsession.__init__(self,query,'ManageLandsat')
-             
+
     def _ManageMetaDb(self,process,colD):
         '''Manage USGS metadata definitions for Landsat data'''
         sensor = process.params.sensor
         query = {'sens':sensor,'col':colD['column']}
-        self.cursor.execute("SELECT * FROM landsat.meta_links WHERE sensor = '%(sens)s' AND metacolumn = '%(col)s';" %query)     
-        record = self.cursor.fetchone() 
+        self.cursor.execute("SELECT * FROM landsat.meta_links WHERE sensor = '%(sens)s' AND metacolumn = '%(col)s';" %query)
+        record = self.cursor.fetchone()
         if colD['required']: req = 'Y'
         else: req = 'N'
-        if record == None and not process.delete:     
+        if record == None and not process.delete:
             self.cursor.execute("INSERT INTO landsat.meta_links (sensor,csvheader,metatable,metacolumn,metatype,metalength,required,defaultvalue) VALUES (%s,%s, %s, %s, %s, %s, %s, %s)",
                            (sensor,colD['csv'],colD['table'],colD['column'],colD['type'],colD['length'],req,colD['default']))
             self.conn.commit()
@@ -66,23 +67,23 @@ class ManageLandsat(PGsession):
                 print (query)
                 #self.cursor.execute(query)
                 #self.conn.commit()
-              
+
     def _ManageBulkMetaUrl(self,queryD):
         rec = self._CheckInsertSingleRecord(queryD,'landsat', 'usgs_bulkmeta', [('collection','level','sensor')])
 
     def _SelectBulkMetaUrl(self,queryD,paramL):
         return self._SingleSearch(queryD, paramL, 'landsat', 'usgs_bulkmeta')
-                       
+
     def _SelectMetaTranslate(self,filetype,query):
-        
-        if filetype == 'csv':     
+
+        if filetype == 'csv':
             self.cursor.execute("SELECT csvheader, metatable, metacolumn, required, defaultvalue FROM landsat.meta_links WHERE sensor = '%(sensor)s';" %query)
         else:
             NOTDONE
             self.cursor.execute("SELECT xmlparent, xmlelement,  metatable, metacolumn, required, defaultvalue FROM landsat.meta_links WHERE sensor = '%(sensor)s';" %query)
-        records = self.cursor.fetchall()  
-        return records 
-    
+        records = self.cursor.fetchall()
+        return records
+
     def _CopyBulkMeta(self, metaFPND, headerD, copyfile):
         for key in metaFPND:
             #if key in ['main','url','geo','sub']:
@@ -93,7 +94,7 @@ class ManageLandsat(PGsession):
             print (printstr)
             print ("DELETE FROM landsat.meta_%(tab)s WHERE copyfile = '%(c)s';" %query)
             self.cursor.execute("DELETE FROM landsat.meta_%(tab)s WHERE copyfile = '%(c)s';" %query)
-             
+
             tab = 'landsat.meta_%(tab)s' %query
             printstr = '    Copying %(c)s csv data (%(f)s) to table landsat.meta_%(tab)s' %query
             print (printstr)
@@ -105,7 +106,7 @@ class ManageLandsat(PGsession):
             self.cursor.copy_from(f, tab, sep=',', columns=(headerD[key]) )
             self.conn.commit()
             f.close()
-      
+
     def ManageBulkMeta(self, metaFPND):
         from os import path, makedirs, remove
         from shutil import move
@@ -113,7 +114,7 @@ class ManageLandsat(PGsession):
         #set the schema
         schema = 'landsat'
         #increase buffer size
-        self.cursor.execute("SET temp_buffers = '2GB';") 
+        self.cursor.execute("SET temp_buffers = '2GB';")
         #create tmp folder
         tmpFP = path.split(metaFPND['main'])[0]
         tmpFP = path.join(tmpFP,'tmp')
@@ -131,12 +132,12 @@ class ManageLandsat(PGsession):
             #UPDATE EXISTING RECORDS
             self.BulkMetaUpdate(schema,table,tmptab,headerL,tableKeyL,tmpFP,key)
             if key == 'main':
-                self.BulkMetaMainUpdate(schema,table,tmptab,headerL,tableKeyL,tmpFP,key)    
+                self.BulkMetaMainUpdate(schema,table,tmptab,headerL,tableKeyL,tmpFP,key)
         #move the bulk metafile
-        #Update the setdate for the metafile 
+        #Update the setdate for the metafile
         query = {'regdate':regdate, 'srcFPN':srcFPN}
         self.cursor.execute("UPDATE landsat.usgs_bulkmeta SET latestdate = '%(regdate)s' WHERE csvlocal = '%(srcFPN)s';" %query)
-        self.conn.commit() 
+        self.conn.commit()
         #If the process reahced here the file is OK; put in the 'retired' folder
         tarFP,srcFN = path.split(srcFPN)
         tarFP = path.join(tarFP,'retired')
@@ -150,9 +151,9 @@ class ManageLandsat(PGsession):
             remove(tarFPN)
         print ('moving to retired', srcFPN, tarFPN)
         move(srcFPN, tarFPN)
-                                 
+
     def _SelectUSGSLandsatScenes(self, period, statusD, paramL):
-        
+
         statusD['M.acqdate'] = {'val':period.startdate, 'op':'>=' }
         statusD['#M.acqdate'] = {'val':period.enddate, 'op':'<=' }
         if period.enddoy > 0 and period.enddoy > period.startdoy:
@@ -162,12 +163,12 @@ class ManageLandsat(PGsession):
             cols = paramL[0]
         else:
             cols =  ','.join(paramL)
-            
+
         wherestr = self._DictToSelect(statusD)
 
         if statusD['l.downloaded']['val'] == 'N':
             #If only finding tiles not previosly downloaded
-            
+
             qD = {'cols':cols,'where':wherestr}
             #qD = {'cols':cols,'where':wherestr}
             query = "SELECT %(cols)s FROM landsat.meta_main M\
@@ -178,8 +179,8 @@ class ManageLandsat(PGsession):
                     %(where)s ORDER BY m.acqdate;" %qD
 
             self.cursor.execute(query)
-            recs = self.cursor.fetchall()  
-  
+            recs = self.cursor.fetchall()
+
             #Reset statusD['L.downloaded'] to find null (unregistered local scenes)
             statusD['l.downloaded'] = {'val':'NULL', 'op':'IS' }
 
@@ -206,11 +207,11 @@ class ManageLandsat(PGsession):
                     %(where)s ORDER BY m.acqdate;" %qD
             self.cursor.execute(query)
             recs = self.cursor.fetchall()
-        
+
         return recs
-      
+
     def _SelectLocalLandsatScenes(self, period, statusD, paramL, verbose=False):
-        
+
         statusD['acqdate'] = {'val':period.startdate, 'op':'>=' }
         statusD['#acqdate'] = {'val':period.enddate, 'op':'<=' }
         if period.enddoy > 0 and period.enddoy > period.startdoy:
@@ -220,7 +221,7 @@ class ManageLandsat(PGsession):
             cols = paramL[0]
         else:
             cols =  ','.join(paramL)
-            
+
         wherestr = self._DictToSelect(statusD)
 
         qD = {'cols':cols,'where':wherestr}
@@ -233,28 +234,28 @@ class ManageLandsat(PGsession):
         recs = self.cursor.fetchall()
         if len(recs) == 0:
             print (query)
-        return recs 
-    
+        return recs
+
     def _InsertSceneTemplate(self, queryD, overwrite, delete):
         self._CheckInsertSingleRecord(queryD, 'landsat', 'templatescenes', ([]), overwrite, delete)
-    
+
     def _InsertLayerTemplate(self, queryD, overwrite, delete):
         self._CheckInsertSingleRecord(queryD, 'landsat', 'templatelayers', ([]), overwrite, delete)
 
     def _InsertBandDos(self, queryD, overwrite, delete):
         self._CheckInsertSingleRecord(queryD, 'landsat', 'banddos', ([]), overwrite, delete)
-        
+
     def _SelectBandDos(self,queryD,paramL):
         recs = self._MultiSearch(queryD, paramL, 'landsat', 'banddos', True)
         return recs
-    
+
     def _InsertSceneDos(self, queryD, overwrite, delete):
         self._CheckInsertSingleRecord(queryD, 'landsat', 'scenedos', ([]), overwrite, delete)
 
     def _SelectSceneDos(self,queryD,paramL):
         rec = self._SingleSearch(queryD, paramL, 'landsat', 'scenedos', False)
         return rec
-    
+
     def _InsertDOStoSRFItrans(self, queryD, overwrite, delete):
         self._CheckInsertSingleRecord(queryD, 'landsat', 'dossrfi', (['lsatprodid'],['suffix']), overwrite, delete)
 
@@ -265,11 +266,11 @@ class ManageLandsat(PGsession):
     def _SelectSceneBand(self,queryD,paramL):
         rec = self._SingleSearch(queryD, paramL, 'landsat', 'bands',True)
         return rec
-                     
+
     def _SelectCompOld(self,system,comp):
         comp['system'] = system
         return SelectComp(self, comp)
-    
+
     def _InsertTileCoordsOld(self,query):
         #rec = self._SingleSearch(query,'sentinel', 'vectorsearches')
         self.cursor.execute("SELECT * FROM landsat.tilecoords WHERE path = '%(path)s' AND row = '%(row)s' AND dir = '%(dir)s' AND wrs = '%(wrs)s';" %query)
@@ -285,29 +286,29 @@ class ManageLandsat(PGsession):
 
         records = self.cursor.fetchall()
         return records
-    
+
     def _InsertSingleLandsatRegionOld(self,queryD):
         '''
         '''
         tabkeys = (['regionid'],['prstr'],['dir'],['wrs'])
         #regionid,mgrs
-        self._CheckInsertSingleRecord(queryD, 'landsat', 'regions', tabkeys) 
-           
+        self._CheckInsertSingleRecord(queryD, 'landsat', 'regions', tabkeys)
+
     def _SelectLandsatTileCoordsOld(self, searchD):
         #construct where statement - LATER
         query = {}
         self.cursor.execute("SELECT wrs,dir,path,row,minx,miny,maxx,maxy,ullat,ullon,lrlat,lrlon,urlat,urlon,lllat,lllon FROM landsat.tilecoords;" %query)
         records = self.cursor.fetchall()
         return records
-    
+
     def _SelectLandsatTileCoordsNoSentinelRegionOld(self):
         #construct where statement - LATER
         query = {}
         self.cursor.execute("SELECT wrs,dir,path,row,minx,miny,maxx,maxy,ullat,ullon,lrlat,lrlon,urlat,urlon,lllat,lllon FROM landsat.tilecoords;" %query)
         records = self.cursor.fetchall()
         return records
-    
-    def _InsertScene(self,queryD): 
+
+    def _InsertScene(self,queryD):
         rec = self._CheckInsertSingleRecord(queryD,'landsat', 'scenes', [('lsatprodid',)])
 
     def _InsertReflectanceCalibration(self,queryD):
@@ -326,27 +327,27 @@ class ManageLandsat(PGsession):
     def _SelectEmissivityCalibration(self, queryD, paramL):
         recs = self._MultiSearch(queryD, paramL, 'landsat', 'dnemiscal', True)
         return recs
-            
+
     def _SelectBandWaveLengths(self, queryD, paramL):
         recs = self._MultiSearch(queryD, paramL, 'landsat', 'wavelengths', True)
         return recs
-    
+
     def _SelectBandsFromProdId(self,queryD,paramL):
         recs = self._MultiSearch(queryD, paramL, 'landsat', 'bands', True)
         return recs
-        
+
     def _SelectImageAttributes(self, queryD, paramL):
-        
+
         recs = self._SingleSearch(queryD, paramL, 'landsat', 'imgattr', True)
         return recs
-    
+
     def _UpdateSceneStatus(self, queryD):
         query = "UPDATE landsat.scenes SET %(column)s = '%(status)s' WHERE lsatprodid = '%(lsatprodid)s'" %queryD
         self.cursor.execute(query)
         self.conn.commit()
-        
+
     def _InsertBand(self,queryD):
         rec = self._CheckInsertSingleRecord(queryD,'landsat', 'bands', [('lsatprodid','folder','band','suffix')])
-        
+
     def _InsertLayer(self,layer,overwrite,delete):
         InsertLayer(self,layer,overwrite,delete)

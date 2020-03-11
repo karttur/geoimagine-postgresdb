@@ -19,6 +19,7 @@ class ManageRegion(PGsession):
     def __init__(self):
         """The constructor connects to the database"""
         HOST = 'manageregion'
+        HOST = 'karttur'
         secrets = netrc.netrc()
         username, account, password = secrets.authenticators( HOST )
         pswd = b64encode(password.encode())
@@ -26,7 +27,7 @@ class ManageRegion(PGsession):
         query = {'db':'postgres','user':username,'pswd':pswd}
         #Connect to the Postgres Server
         self.session = PGsession.__init__(self,query,'ManageRegion')
-   
+
     def _InsertRegionCat(self,process,region):
         #Get the parentid from all cats except tracts and global
         if region['stratum'] == 0:
@@ -58,14 +59,14 @@ class ManageRegion(PGsession):
             #print ("SELECT regioncat FROM system.regions WHERE regionid = '%(parentid)s';" %region)
             exitstr = 'The parentcat region %s for region %s does not exists, it must be added proir to the region' %(region['parentid'],region['regioncat'])
             exit(exitstr)
-            
-            
+
+
     def _Insert1DegDefRegion(self, query):
         '''
         '''
         self._CheckInsertSingleRecord(query,'system','defregions')
-        
-            
+
+
     def _InsertDefRegion(self, process, layer, query, bounds, llD, overwrite, delete):
         '''
         '''
@@ -94,14 +95,14 @@ class ManageRegion(PGsession):
                     print ("SELECT * FROM system.defregions WHERE regionid = '%(parentid)s' AND regioncat ='%(parentcat)s' ;" %xquery)
                     FISKA
                     exitstr = 'the parentid region "%s" of regioncat "%s" does not exist in the defregions table' %(query['parentid'], query['parentcat'])
-                    exit(exitstr)       
+                    exit(exitstr)
             else:
-                
+
                 exitstr = 'the parentid region "%s" of regioncat "%s" does not exist in the defregions table' %(query['parentid'], query['parentcat'])
                 print ("SELECT * FROM system.defregions WHERE regionid = '%(parentid)s' AND regioncat ='%(parentcat)s' ;" %query)
 
                 exit(exitstr)
-                
+
         #Check if the region itself already exists
         #query = {'id': layer.location.regionid}
         self.cursor.execute("SELECT regioncat FROM system.defregions WHERE regionid = '%(regionid)s';" %query)
@@ -110,9 +111,9 @@ class ManageRegion(PGsession):
             self.cursor.execute('INSERT INTO system.defregions (regioncat, regionid, regionname, parentid, title, label) VALUES (%s, %s, %s, %s, %s, %s)',
                                 (query['regioncat'], query['regionid'], query['regionname'], query['parentid'], query['title'], query['label']))
             self.conn.commit()
-         
+
         else:
-            if query['regioncat'] != record[0]: 
+            if query['regioncat'] != record[0]:
                 if layer.locus.locus in ['antarctica','south-america']:
                     query2 = {'id': layer.locus.locus,'cat':query['regioncat']}
                     self.cursor.execute("SELECT regioncat FROM system.defregions WHERE regionid = '%(id)s' and regioncat = '%(cat)s';" %query2)
@@ -121,18 +122,18 @@ class ManageRegion(PGsession):
                         self.cursor.execute('INSERT INTO system.defregions (regioncat, regionid, regionname, parentid, title, label) VALUES (%s, %s, %s, %s, %s, %s)',
                                             (query['regioncat'], query['regionid'], query['regionname'], query['parentid'], query['title'], query['label']))
                         self.conn.commit()
-                else:    
+                else:
                     pass
 
         query['system'] = 'system'
         query['regiontype'] = 'D'
         self._InsertRegion(query, bounds, llD, overwrite, delete)
-        
-        InsertCompDef(self,layer.comp)  
+
+        InsertCompDef(self,layer.comp)
         InsertCompProd(self,layer.comp)
-        #InsertCompProd(self,process.system,process.system,layer.comp)  
+        #InsertCompProd(self,process.system,process.system,layer.comp)
         InsertLayer(self, layer, process.proc.overwrite, process.proc.delete)
-        
+
     def _InsertRegion(self, query, bounds, llD, overwrite, delete):
         #query = {'id': region.regionid}
         if overwrite or delete:
@@ -140,7 +141,7 @@ class ManageRegion(PGsession):
             self.conn.commit()
             if delete:
                 return
-            
+
         self.cursor.execute("SELECT * FROM %(system)s.regions WHERE regionid = '%(regionid)s';" %query)
         record = self.cursor.fetchone()
         if record == None:
@@ -170,12 +171,12 @@ class ManageRegion(PGsession):
                 exitstr = 'Duplicate categories (%s %s) for regionid %s' %(record[0],query['regioncat'], query['regionid'])
                 exit(exitstr)
         #TGTODO duplicate name for tract but different user???, delete and overwrite
-        
+
     def _SelectComp(self,comp):
         #comp['system'] = system
         return SelectComp(self, comp)
-    
-            
+
+
     def _LoadBulkDefregions(self,tmpFPN):
         #self._DeleteSRTMBulkTiles(params)
         #query = {'tmpFPN':tmpFPN, 'items': ",".join(headL)}
@@ -200,5 +201,3 @@ class ManageRegion(PGsession):
             next(f)  # Skip the header row.
             self.cursor.copy_from(f, 'system.regions', sep=',')
             self.conn.commit()
-    
-

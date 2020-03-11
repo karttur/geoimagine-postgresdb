@@ -19,6 +19,7 @@ class ManageSqlDumps(PGsession):
     def __init__(self):
         """The constructor connects to the database"""
         HOST = 'managesql'
+        HOST = 'karttur'
         secrets = netrc.netrc()
         username, account, password = secrets.authenticators( HOST )
         pswd = b64encode(password.encode())
@@ -26,7 +27,7 @@ class ManageSqlDumps(PGsession):
         query = {'db':'postgres','user':username,'pswd':pswd}
         #Connect to the Postgres Server
         self.session = PGsession.__init__(self,query,'ManageSMAP')
-        
+
     def _SelectAllTableRecs(self,query):
         '''
         '''
@@ -34,10 +35,10 @@ class ManageSqlDumps(PGsession):
         #recs = self.session._SelectAllTableRecs(query)
         self.cursor.execute("SELECT %(items)s FROM %(schematab)s;" %query)
         return self.cursor.fetchall()
-    
+
     def _SelectUserSecrets(self):
         HOST = 'managesql'
+        HOST = 'karttur'
         secrets = netrc.netrc()
         username, account, password = secrets.authenticators( HOST )
         return (username, account, password)
-    

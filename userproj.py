@@ -17,6 +17,7 @@ class ManageUserProj(PGsession):
     def __init__(self):
         """The constructor connects to the database"""
         HOST = 'ManageUserProj'
+        HOST = 'karttur'
         secrets = netrc.netrc()
         username, account, password = secrets.authenticators( HOST )
         pswd = b64encode(password.encode())
@@ -24,7 +25,7 @@ class ManageUserProj(PGsession):
         query = {'db':'postgres','user':username,'pswd':pswd}
         #Connect to the Postgres Server
         self.session = PGsession.__init__(self,query,'UserLocale')
-         
+
     def _ManageDefRegProjTractSite(self,queryD):
         '''
         '''
@@ -46,7 +47,7 @@ class ManageUserProj(PGsession):
         userSiteL = [item[0] for item in userSites]
         #print (userid, usercat, stratum, userProjs, userTracts, userSites)
         #Check that the proj, tract and site to create does not exist
-        
+
         if queryD['projid'] in userProjL:
             exitstr = 'Your user project with projid = %(projid)s already exists' %queryD
             exit(exitstr)
@@ -62,8 +63,8 @@ class ManageUserProj(PGsession):
         self._ManageTract(queryD, False, False)
         self._ManageSite(queryD, False, False)
         self._ManageProjTractLink(queryD, False, False)
-        
-        
+
+
     def _ManageTractProjSite(self,queryD):
         '''
         '''
@@ -95,16 +96,16 @@ class ManageUserProj(PGsession):
         if queryD['siteid'] in userSiteL:
             exitstr = 'Your user site with siteid = %(siteid)s already exists' %queryD
             exit(exitstr)
-        
+
         self._CheckProjTractSite(queryD)
         '''
         self._ManageProj(queryD, False, False)
         self._ManageTract(queryD, False, False)
         self._ManageSite(queryD, False, False)
         self._ManageProjTractLink(queryD, False, False)
-        
+
     _ManageTractProjSite
-           
+
     def _ManageProj(self, qD, overwrite, delete):
         '''
         '''
@@ -174,7 +175,7 @@ class ManageUserProj(PGsession):
             self.cursor.execute('INSERT INTO userlocale.linkprojregion (regionid, projid) VALUES (%s, %s)',
                                 (queryD['tractid'], queryD['projid']))
             self.conn.commit()
-    
+
     def _SelectUserStatus(self,queryD):
         '''
         '''
@@ -197,36 +198,36 @@ class ManageUserProj(PGsession):
         if userProj != None:
             exitstr = 'A project with projid = %(projid)s already exists' %queryD
             exit(exitstr)
-        
+
         self.cursor.execute("SELECT tractid FROM regions.tracts WHERE tractid = '%(tractid)s';" %queryD)
         userTract = self.cursor.fetchone()
         if userTract != None:
             exitstr = 'A tract with tractid = %(tractid)s already exists' %queryD
             exit(exitstr)
-            
+
         self.cursor.execute("SELECT siteid FROM regions.sites WHERE siteid = '%(siteid)s';" %queryD)
         userSite = self.cursor.fetchone()
         if userSite != None:
             exitstr = 'A site with siteid = %(siteid)s already exists' %queryD
             exit(exitstr)
-            
+
     def _SelectComp(self,system,comp):
         comp['system'] = system
         return SelectComp(self, comp)
-    
+
     def _SelectParentRegion(self,queryD):
         '''
         '''
         self.cursor.execute("SELECT regionid, regioncat FROM ancillary.layers \
             JOIN system.regions USING (regionid) \
             WHERE compid = '%(compid)s';" %queryD)
-        
+
         rec = self.cursor.fetchone()
         if rec == None:
             exitstr = 'no region founds' %queryD
             exit(exitstr)
         return rec
-  
+
     def _InsertTractRegion(self, process, layer, query, bounds, llD):
         '''
         '''
@@ -249,13 +250,13 @@ class ManageUserProj(PGsession):
                     print ("SELECT * FROM system.defregions WHERE regionid = '%(parentid)s' AND regioncat ='%(parentcat)s' ;" %xquery)
                     FISKA
                     exitstr = 'the parentid region "%s" of regioncat "%s" does not exist in the defregions table' %(query['parentid'], query['parentcat'])
-                    exit(exitstr)       
+                    exit(exitstr)
             else:
                 print ("SELECT * FROM system.defregions WHERE regionid = '%(parentid)s' AND regioncat ='%(parentcat)s' ;" %query)
                 FISKA
                 exitstr = 'the parentid region "%s" of regioncat "%s" does not exist in the defregions table' %(query['parentid'], query['parentcat'])
                 exit(exitstr)
-                
+
         #Check if the region itself already exists
 
         self.cursor.execute("SELECT regioncat FROM regions.defregions WHERE regionid = '%(regionid)s';" %query)
@@ -264,17 +265,17 @@ class ManageUserProj(PGsession):
             self.cursor.execute('INSERT INTO regions.defregions (regioncat, regionid, regionname, parentid, title, label) VALUES (%s, %s, %s, %s, %s, %s)',
                                 (query['regioncat'], query['regionid'], query['regionname'], query['parentid'], query['title'], query['label']))
             self.conn.commit()
-            
+
         query['system'] = 'regions'
         query['regiontype'] = 'T'
         self._InsertRegion(query, bounds, llD)
         print (layer.comp.system)
-        InsertCompDef(self,layer.comp)  
+        InsertCompDef(self,layer.comp)
         InsertCompProd(self,layer.comp)
-        #InsertCompProd(self,process.system,process.system,layer.comp)  
+        #InsertCompProd(self,process.system,process.system,layer.comp)
         InsertLayer(self, layer, process.proc.overwrite, process.proc.delete)
-        
-        
+
+
     def _InsertRegion(self, query, bounds, llD):
         '''DUPLICATE FROM REGION
         '''
@@ -309,8 +310,8 @@ class ManageUserProj(PGsession):
         elif record[0] != query['regioncat']:
             exitstr = 'Duplicate categories (%s %s) for regionid %s' %(record[0],query['regioncat'], query['regionid'])
             exit(exitstr)
-            
-            
+
+
     '''The following should be put together with MODIS
     '''
     def _SelectModisTileCoords(self, searchD):
@@ -318,8 +319,8 @@ class ManageUserProj(PGsession):
         query = {}
         self.cursor.execute("SELECT hvtile,h,v,minxsin,minysin,maxxsin,maxysin,ullat,ullon,lrlat,lrlon,urlat,urlon,lllat,lllon FROM modis.tilecoords;" %query)
         records = self.cursor.fetchall()
-        return records 
-    
+        return records
+
     def _SearchTilesFromWSEN(self, west, south, east, north):
         query = {'west':west, 'south':south,'east':east,'north':north}
         #self.cursor.execute("SELECT mgrs,west,south,east,north,ullon,ullat,urlon,urlat,lrlon,lrlat,lllon,lllat, minx, miny, maxx, maxy FROM sentinel.tilecoords WHERE centerlon > %(west)s AND centerlon < %(east)s AND centerlat > %(south)s AND centerlat < %(north)s;" %query)
@@ -328,13 +329,13 @@ class ManageUserProj(PGsession):
         #print ("SELECT mgrs,west,south,east,north,ullon,ullat,urlon,urlat,lrlon,lrlat,lllon,lllat FROM sentinel.tilecoords WHERE centerlon > %(west)s AND centerlon < %(east)s AND centerlat > %(south)s AND centerlat < %(north)s;" %query)
         records = self.cursor.fetchall()
         return records
-    
+
     def _InsertModisRegionTile(self, query):
         '''
         '''
-        if query['table'] == 'regions': 
+        if query['table'] == 'regions':
             self.cursor.execute("SELECT * FROM %(system)s.%(table)s WHERE regionid = '%(regionid)s';"  %query)
-        elif query['table'] == 'tracts': 
+        elif query['table'] == 'tracts':
             self.cursor.execute("SELECT * FROM %(system)s.%(table)s WHERE tractid = '%(regionid)s';"  %query)
 
         record = self.cursor.fetchone()
@@ -345,7 +346,7 @@ class ManageUserProj(PGsession):
             return
         self.cursor.execute("SELECT * FROM modis.regions WHERE htile = %(h)s AND vtile = %(v)s AND regiontype = '%(regiontype)s' AND regionid = '%(regionid)s';" %query)
         record = self.cursor.fetchone()
-        
+
         if record == None and not query['delete']:
             ##print aD['senssat'],aD['typeid'],aD['subtype'], filecat, tD['pattern'], tD['folder'], tD['band'], tD['prefix'],suffix, tD['celltype'],  tD['fileext']
             self.cursor.execute("INSERT INTO modis.regions (regionid, regiontype, htile, vtile) VALUES (%s, %s, %s, %s)",

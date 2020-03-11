@@ -17,6 +17,7 @@ class SelectProcess(PGsession):
         """The constructor connects to the database"""
         #HOST = 'localhost99'
         HOST = 'processmanage'
+        HOST = 'karttur'
         secrets = netrc.netrc()
         username, account, password = secrets.authenticators( HOST )
         print ('    db username',username)
@@ -114,7 +115,8 @@ class ManageProcess(PGsession):
 
     def __init__(self):
         """The constructor connects to the database"""
-        HOST = 'localhost98'
+        #HOST = 'localhost98'
+        HOST = 'karttur'
         secrets = netrc.netrc()
         username, account, password = secrets.authenticators( HOST )
         pswd = b64encode(password.encode())

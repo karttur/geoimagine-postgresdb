@@ -20,8 +20,9 @@ class ManageSoilMoisture(PGsession):
     def __init__(self):
         """The constructor connects to the database"""
         HOST = 'managesoilmoisture'
+        HOST = 'karttur'
         secrets = netrc.netrc()
-        
+
         username, account, password = secrets.authenticators( HOST )
         print (username, account, password)
         pswd = b64encode(password.encode())
@@ -29,19 +30,19 @@ class ManageSoilMoisture(PGsession):
         query = {'db':'postgres','user':username,'pswd':pswd}
         #Connect to the Postgres Server
         self.session = PGsession.__init__(self,query,'ManageSoilMoisture')
-        
-        
+
+
     def SelectFirstLastDate(self,tab,stationid):
         query = {'tab':tab, 'stn':stationid}
         self.cursor.execute("SELECT datum FROM  soilmoisture.%(tab)s WHERE stationid = '%(stn)s' ORDER BY datum" %query)
         records = self.cursor.fetchall()
         return records
-    
+
     def DeleteStnDates(self,tab,stationid,firstdate,lastdate):
         query = {'tab':tab, 'stn':stationid, 'fd':firstdate, 'ld':lastdate}
         self.cursor.execute("DELETE FROM  soilmoisture.%(tab)s WHERE stationid = '%(stn)s' AND datum >= '%(fd)s' AND datum <= '%(ld)s'" %query)
         self.conn.commit()
-        
+
     def CopyInsert(self,csvFPN,tab):
         '''
         '''
